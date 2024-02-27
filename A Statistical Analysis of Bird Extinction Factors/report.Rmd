@@ -1,0 +1,196 @@
+---
+title: "First year project RMD"
+author: "Cristina Avram, Shanon Marietta Badger, Gabriela Zhelyazkova, Daniil Strelan, Alexis Serruys"
+date: "2023-03-18"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Imports
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(fdm2id)
+```
+
+# Data Loading and Cleaning
+
+``` {=}
+In this section, the code loads a CSV file called "Factors Affecting Extinction.csv" into R and removes any missing values. It also creates two mapping variables for the "Size" and "Status" variables, which will be used later to convert them into factors.
+```
+
+```{r}
+
+# load the data
+birds <- read.csv("Factors Affecting Extinction.csv")
+
+# remove missing values
+birds <- na.omit(birds)
+
+# create a mapping for Size variable
+size_map <- c("L" = "Large", "S" = "Small")
+
+# convert Size variable to factor
+birds$Size <- factor(size_map[birds$Size])
+
+# create a mapping for Status variable
+status_map <- c("M" = "Migrant", "R" = "Resident")
+
+# convert Status variable to factor
+birds$Status <- factor(status_map[birds$Status])
+```
+
+# Data Exploration and Visualization
+
+``` {=}
+In this section, the code summarizes the data and creates some visualizations to explore the relationships between variables. It first creates some histograms and boxplots to look at the distribution of "Time" and "Pairs" variables, and then creates two scatterplots to visualize the relationships between "Pairs" and "Time" for different combinations of "Size" and "Status" variables. Finally, it uses ggplot2 to create more detailed scatterplots that compare the relationship between "Pairs" and "Time" for each level of "Size" and "Status" variables.
+```
+
+```{r}
+# summary statistics
+summary(birds)
+
+# distribution plots
+par(mfrow=c(2,2))
+hist(birds$Time, main="Histogram of Extinction Time", xlab="Time")
+hist(birds$Pairs, main="Histogram of Number of Nests", xlab="Number of Nests")
+boxplot(birds$Time ~ birds$Size, main="Boxplot of Extinction Time by Size", xlab="Size", ylab="Time")
+boxplot(birds$Time ~ birds$Status, main="Boxplot of Extinction Time by Migratory Status", xlab="Migratory Status", ylab="Time")
+
+# plot comparison of extinction time for sizes, for migratory status, for nesting pairs
+ggplot(birds, aes(x=Pairs, y=Time, color=Size)) +
+  geom_point() +
+  facet_wrap(~Size, ncol=2) +
+  labs(title="Extinction Time vs Number of Nests by Size", x="Number of Nests", y="Extinction Time", color="Size") +
+  scale_color_manual(values=c("green", "orange")) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(birds, aes(x=Pairs, y=Time, color=Status)) +
+  geom_point() +
+  facet_wrap(~Status, ncol=2) +
+  labs(title="Extinction Time vs Number of Nests by Migratory Status", x="Number of Nests", y="Extinction Time", color="Migratory Status") +
+  scale_color_manual(values=c("blue", "red")) +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+# Multiple Linear Regression
+
+``` {=}
+In this section, the code creates a multiple linear regression model that predicts "Time" based on "Pairs", "Size", and "Status" variables. It then uses the summary function to view the coefficients, standard errors, t-values, and p-values of the model.
+```
+
+```{r}
+# create a multiple regression model
+model2 <- lm(Time ~ Pairs + Size + Status, data=birds)
+
+# view the summary of the model
+summary(model2)
+```
+
+# Transformations and Model Improvement
+
+``` {=}
+In this section, the code creates three new variables that transform "Time" using different functions (log, square root, and inverse). It then fits linear models using each of the new variables, and uses the summary function to view the coefficients, standard errors, t-values, and p-values of each model. The purpose of this section is to see if any of the transformations improve the performance of the model.
+```
+
+```{r}
+# Create new variables with different transformations of time
+birds$log_time <- log(birds$Time)
+birds$sqrt_time <- sqrt(birds$Time)
+birds$inv_time <- 1/birds$Time
+
+# Fit linear models using the new variables
+model_log <- lm(log_time ~ Pairs + Size + Status, data = birds)
+model_sqrt <- lm(sqrt_time ~ Pairs + Size + Status, data = birds)
+model_inv <- lm(inv_time ~ Pairs + Size + Status, data = birds)
+
+# Print summaries of the models
+summary(model_log)
+summary(model_sqrt)
+summary(model_inv)
+```
+
+# Residual Analysis
+
+``` {=}
+In this section, the code creates a scatterplot of residuals vs. fitted values to check if the assumptions of linear regression are met. It then uses the plot and identify functions to visually identify any outliers, and uses the cookplot function to identify any influential points.
+```
+
+```{r}
+# create a scatterplot of residuals vs. fitted values
+plot(fitted(model_log), residuals(model_log),
+     xlab = "Fitted values", ylab = "Residuals",
+     main = "Residuals vs. Fitted Values")
+abline(h = 0, lty = 2) # add horizontal line at y = 0
+```
+
+```{r}
+# generate plot
+plot(model_log, pch = 20)
+
+# identify outliers
+identify(fitted(model_log), residuals(model_log))
+```
+
+```{r}
+cookplot(model_log, index = NULL, labels = NULL)
+title("Cook's Distance Plot for the Dataset called :Birds")
+
+```
+
+# Removing Outliers
+
+``` {=}
+In this section, the code removes outliers from the data by identifying the row numbers of the outliers and subsetting the original dataset to exclude them.
+```
+
+```{r}
+# identify outliers
+outliers <- c(28, 29, 26)
+
+# remove outliers from the dataset
+birds_clean <- subset(birds, !row.names(birds) %in% outliers)
+```
+
+# Refitting the Model
+
+``` {=}
+In this section, the code fits a new model using the cleaned dataset, and uses the summary function to view the coefficients, standard errors, t-values, and p-values of the new model. It also creates a scatterplot of residuals vs. fitted values for the new model.
+```
+
+```{r}
+# New model
+model_logclean <- lm(log_time ~ Pairs + Size + Status, data = birds_clean)
+
+# summary and performance of the new model
+summary(model_logclean)
+
+# plot the new model
+plot(model_logclean, pch = 20)
+```
+
+# Predicting New Values
+
+``` {=}
+In this section, the code uses the predict function to predict the "Extinction Time" value for a new bird with the characteristics of "Pairs", "Large" "Size", and "Resident" "Status". It then creates a scatterplot of predicted values vs. residuals to visually check the accuracy of the predictions.
+```
+
+```{r}
+predicted_values <- predict(model_logclean)
+residuals <- residuals(model_logclean)
+plot(predicted_values, residuals, main = "Residual Plot for Life Prediction Model")
+abline(h = 0, col = "red")
+```
+
+```{r}
+# Suppose we want to predict Time for a bird with the following characteristics:
+new_bird <- data.frame(Pairs = 4.056, Size = "Large", Status = "Resident")
+
+# Make the prediction using the model
+prediction <- predict(model_logclean, newdata = new_bird)
+
+# View the predicted Time value
+prediction
+```

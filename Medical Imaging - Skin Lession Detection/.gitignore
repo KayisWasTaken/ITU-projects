@@ -1,0 +1,6 @@
+#ignoring the data set
+*.zip
+*.png
+*.jpg
+.DS_Store
+.vscode/settings.json
